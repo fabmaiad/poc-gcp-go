@@ -74,12 +74,12 @@ func main() {
 				time.Sleep(2 * time.Second) // Espera antes de tentar novamente
 			} else {
 				fmt.Println("POST realizado com sucesso, ID:", messageID)
-				msg.Ack()
 				success = true
 				break
 			}
 		}
 		if success {
+			msg.Ack()
 			fmt.Printf("Confirmando mensagem (Ack), ID: %s...\n", messageID)
 		} else {
 			fmt.Printf("Falha ao processar a mensagem após várias tentativas, ID: %s\n", messageID)
