@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"cloud.google.com/go/pubsub"
+	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"google.golang.org/api/option"
 )
 
@@ -54,6 +55,10 @@ func (s *PubsubService) PublisherMessage(topicID, message string) (string, error
 	msg := fmt.Sprintf("Published message ID: %s", id)
 	fmt.Println(msg)
 	return msg, nil
+}
+
+func init() {
+	functions.HTTP("main", main)
 }
 
 func main() {
