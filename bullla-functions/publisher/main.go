@@ -58,10 +58,10 @@ func (s *PubsubService) PublisherMessage(topicID, message string) (string, error
 }
 
 func init() {
-	functions.HTTP("main", main)
+	functions.HTTP("Main", main)
 }
 
-func main() {
+func main(w http.ResponseWriter, r *http.Request) {
 	// URL do endpoint
 	url := os.Getenv("ENDPOINT_SERVER")
 
