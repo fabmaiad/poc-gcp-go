@@ -1,4 +1,4 @@
-module github.com/fabmaiad/poc-gcp-go
+module github.com/fabmaiad/poc-gcp-go/bullla-functions/publisher
 
 go 1.22.4
 
