@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -33,7 +33,7 @@ func createClient() {
 
 func init() {
 	//
-	//runtime.GOMAXPROCS(2)
+	runtime.GOMAXPROCS(1)
 	// Registrando HTTP Function
 	functions.HTTP("Main", PublishMessage)
 }
@@ -92,53 +92,40 @@ func PublishMessage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Falha ao recuperar mensagens: %v", err), http.StatusInternalServerError)
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(10)*time.Minute)
 	defer cancel()
 
-	t := client.Topic(topicID)
-	t.PublishSettings.FlowControlSettings = pubsub.FlowControlSettings{
-		MaxOutstandingMessages: 100,
-		MaxOutstandingBytes:    10 * 1024 * 1024,
-		LimitExceededBehavior:  pubsub.FlowControlBlock,
-	}
-
 	var wg sync.WaitGroup
-	var totalErrors uint64
 
-	numMsgs := len(messages)
-	for i, msg := range messages {
+	for _, msg := range messages {
 		wg.Add(1)
-		messageJSON, err := json.Marshal(msg)
-		if err != nil {
-			logrus.Errorf("Erro ao converter mensagem para JSON: %v", err)
-			wg.Done()
-			atomic.AddUint64(&totalErrors, 1)
-			continue
-		}
-
-		result := t.Publish(ctx, &pubsub.Message{
-			Data: []byte(messageJSON),
-		})
-
-		go func(i int, res *pubsub.PublishResult) {
+		go func(msg Message) {
 			defer wg.Done()
-			_, err := res.Get(ctx)
+
+			messageJSON, err := json.Marshal(msg)
 			if err != nil {
-				logrus.Errorf("Failed to publish message %d: %v", i, err)
-				atomic.AddUint64(&totalErrors, 1)
+				logrus.Errorf("Erro ao converter mensagem para JSON: %v", err)
 				return
 			}
-			logrus.Infof("Successfully published message %d", i)
-		}(i, result)
-	}
 
+			m := &pubsub.Message{
+				Data: []byte(messageJSON),
+			}
+
+			startTime := time.Now()
+			id, err := client.Topic(topicID).Publish(ctx, m).Get(ctx)
+			duration := time.Since(startTime)
+
+			if err != nil {
+				logrus.Errorf("topic(%s).Publish.Get (durou %v): %v", topicID, duration, err)
+				http.Error(w, fmt.Sprintf("Erro ao publicar a mensagem: %v", err), http.StatusInternalServerError)
+				return
+			}
+			logrus.Infof("Mensagem publicada (durou %v): %v", duration, id)
+			fmt.Fprintf(w, "Mensagem publicada: %v\n", id)
+		}(msg)
+	}
 	wg.Wait()
-
-	if totalErrors > 0 {
-		http.Error(w, fmt.Sprintf("%d of %d messages did not publish successfully", totalErrors, numMsgs), http.StatusInternalServerError)
-		return
-	}
-
-	fmt.Fprint(w, "All messages published successfully")
-	logrus.Debug("All messages published successfully")
+	logrus.Debug("ALL Messages Published sucessfully")
 }

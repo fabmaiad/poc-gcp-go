@@ -1,4 +1,4 @@
-package publisher
+package function
 
 import (
 	"context"
@@ -22,8 +22,13 @@ var once sync.Once
 
 // CreateClient
 func createClient() {
-	var projectID = os.Getenv("GCP_PROJECT_ID")
+	var projectID = os.Getenv("PROJECT_ID")
 	var err error
+
+	// creds := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	// if creds == "" {
+	// 	logrus.Fatalf("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set")
+	// }
 
 	client, err = pubsub.NewClient(context.Background(), projectID)
 	if err != nil {
@@ -33,14 +38,16 @@ func createClient() {
 
 func init() {
 	//
-	//runtime.GOMAXPROCS(2)
+	// runtime.GOMAXPROCS(1)
 	// Registrando HTTP Function
 	functions.HTTP("Main", PublishMessage)
 }
 
 type Message struct {
-	ID      string `json:"id"`
-	Message string `json:"message"`
+	Name    string `json:"name"`
+	Date    string `json:"date"`
+	Message string `json:"description"`
+	ID      int    `json:"id"`
 }
 
 func fetchMessages() ([]Message, error) {
@@ -77,7 +84,7 @@ func fetchMessages() ([]Message, error) {
 func PublishMessage(w http.ResponseWriter, r *http.Request) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	var messages []Message
+	//var messages []Message
 	var topicID string = os.Getenv("TOPIC_ID")
 	if topicID == "" {
 		http.Error(w, "TOPIC_ID is not set", http.StatusInternalServerError)
@@ -92,7 +99,9 @@ func PublishMessage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Falha ao recuperar mensagens: %v", err), http.StatusInternalServerError)
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(10)*time.Minute)
+
+	totalTimeout := 120 * time.Second
+	ctx, cancel := context.WithTimeout(r.Context(), totalTimeout)
 	defer cancel()
 
 	t := client.Topic(topicID)
@@ -106,7 +115,7 @@ func PublishMessage(w http.ResponseWriter, r *http.Request) {
 	var totalErrors uint64
 
 	numMsgs := len(messages)
-	for i, msg := range messages {
+	for i, msg := range messages[:5] {
 		wg.Add(1)
 		messageJSON, err := json.Marshal(msg)
 		if err != nil {

@@ -1,0 +1,4 @@
+GCP_PROJECT_ID: bullla-one-d-apps-cn-92c3
+TOPIC_ID: topic1-poc-golang
+PUBSUB_EMULATOR_HOST: topic1-poc-golang
+ENDPOINT_SERVER: http://10.52.226.200/v1/json-server/posts
